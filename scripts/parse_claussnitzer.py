@@ -125,9 +125,8 @@ print S1.columns
 #
 # Iterate through each SNP
 alignmentsURL = 'http://localhost:9083/alignment'
-# genome = 'hg19'
-genome = 'hg38'
-alignment = 'multiz20way'
+genome = 'hg19'
+alignment = 'multiz46way'
 spread = 60
 for row_it in S1.iterrows():
     row = row_it[1]
