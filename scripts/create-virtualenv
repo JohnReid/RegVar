@@ -5,3 +5,5 @@
 pip install Werkzeug Jinja2 Flask requests
 pip install pandas
 pip install ipython==2.4.1 pyzmq matplotlib PySide
+pip install cookbook
+pip install scipy
