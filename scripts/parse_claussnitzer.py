@@ -4,8 +4,10 @@ import pandas as pd
 import numpy as np
 import requests
 import cStringIO
+import cPickle
 from bx.align import maf
 from collections import defaultdict
+from itertools import chain
 
 
 def parseS1(csvfile):
@@ -75,16 +77,40 @@ def get_sequences_from_maf(reader, centre_species):
             raise RuntimeError('Expecting alignments to increase in position.')
         last_start = this_start
         for comp in align.components:
-            species, chromosome = comp.src.split('.')
+            src_split = comp.src.split('.')
+            species = src_split[0]
             if None == offset and centre_species == species:
                 offset = comp.start
             sequences[species] += comp.text
-
     # we must have got the offset
     if None == offset:
         raise RuntimeError('Never found offset for centre species.')
-
+    # Return the sequences and the offset
     return sequences, offset
+
+
+def remove_gaps(seq):
+    "Remove gaps from the sequence."
+    return seq.replace('-', '')
+
+
+def make_bifa_seq_vec(seqs):
+    "Convert a sequence of sequences into a form suitable for BiFa."
+    import biopsy
+    result = biopsy.SequenceVec()
+    for s in seqs:
+        result.append(s)
+    return result
+
+
+def bifa_scan(sequences, bifa_pssms):
+    import biopsy
+    hits, maximal_chain, unadjusted_hits = \
+        biopsy.score_pssms_on_phylo_sequences(
+            make_bifa_seq_vec(bifa_pssms.keys()),
+            make_bifa_seq_vec(sequences)
+        )
+    return hits
 
 
 #
@@ -112,7 +138,14 @@ for row_it in S1.iterrows():
     r = requests.get(url)
     reader = maf.Reader(cStringIO.StringIO(r.text))
     sequences, offset = get_sequences_from_maf(reader, genome)
-    len(sequences)
-    offset
-    print sequences[genome]
-    break
+    # organise sequences into centre sequence and others
+    centre_sequence = remove_gaps(sequences[genome])
+    phylo_sequences = [
+        remove_gaps(sequence)
+        for species, sequence
+        in sequences.iteritems()
+        if genome != species
+    ]
+    sequences = list(chain((centre_sequence,), phylo_sequences))
+    cPickle.dump(sequences,
+                 open('S1-sequences/{0}.pkl'.format(row.ProxySNP), 'w'))

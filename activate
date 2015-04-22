@@ -7,7 +7,7 @@ PROJECTDIR=$(dirname $SELF)
 
 # Update PATH
 PATH=$PROJECTDIR/bin:$PATH
-PYTHONPATH=$PROJECTDIR/python:$PYTHONPATH
+PYTHONPATH=$PROJECTDIR/python:$HOME/Dev/biopsy/Python:$PYTHONPATH
 # add2virtualenv $PROJECTDIR/python
 
 export ALIGNMENTS_SETTINGS=$PROJECTDIR/alignments.cfg
