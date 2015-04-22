@@ -1,0 +1,5 @@
+#!/bin/bash -ex
+
+[ -d virtualenv ] || virtualenv --no-site-packages virtualenv
+. virtualenv/bin/activate
+pip install Werkzeug Jinja2 Flask

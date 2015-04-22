@@ -1,0 +1,39 @@
+#!/bin/bash -e
+
+USAGE="$0 <dir> <genome>"
+DIR=${1?:$USAGE}
+GENOME=${2?:$USAGE}
+echo $DIR $GENOME
+
+#
+# First convert any gzips to bzips
+#
+for GZ in $DIR/*.maf.gz
+do
+    BZ2=$DIR/$(basename $GZ .maf.gz).maf.bz2
+    echo "Converting from gzip $BZ2"
+    [ -f $BZ2 ] || zcat $GZ | bzip2 >$BZ2 &
+done
+wait
+
+#
+# Generate tables for the bzips
+#
+for BZ2 in $DIR/*.maf.bz2
+do
+    BZ2T=$DIR/$(basename $BZ2 .maf.bz2).maf.bz2t
+    echo "Generating table $BZ2T"
+    [ -f $BZ2T ] || bzip-table <$BZ2 >$BZ2T &
+done
+wait
+
+#
+# Index the bzips
+#
+for BZ2 in $DIR/*.maf.bz2
+do
+    INDEX=$DIR/$(basename $BZ2 .maf.bz2).maf.index
+    echo "Indexing $BZ2"
+    [ -f $INDEX ] || maf_build_index.py -s $GENOME $BZ2 &
+done
+wait
