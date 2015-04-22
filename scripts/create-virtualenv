@@ -2,4 +2,6 @@
 
 [ -d virtualenv ] || virtualenv --no-site-packages virtualenv
 . virtualenv/bin/activate
-pip install Werkzeug Jinja2 Flask
+pip install Werkzeug Jinja2 Flask requests
+pip install pandas
+pip install ipython==2.4.1 pyzmq matplotlib PySide
