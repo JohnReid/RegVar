@@ -1,10 +1,11 @@
 #!/bin/bash -ex
 
-[ -d virtualenv ] || virtualenv --no-site-packages virtualenv
+[ -d virtualenv ] || virtualenv --system-site-packages virtualenv
 . virtualenv/bin/activate
 pip install Werkzeug Jinja2 Flask requests
 pip install pandas
-pip install ipython==2.4.1 pyzmq matplotlib
+pip install ipython==2.4.1 pyzmq
 which qmake && pip install PySide  # Only install PySide if qmake is available
 pip install cookbook
-pip install scipy
+# Needed
+# pip install scipy matplotlib
