@@ -1,8 +1,10 @@
 import bx.align.maf
 import cStringIO
 import os
+import io
+import ete2
 
-from flask import Flask, request
+from flask import Flask, request, send_file
 ENVSETTINGSVAR = 'ALIGNMENTS_SETTINGS'
 app = Flask(__name__)
 #
@@ -12,10 +14,38 @@ if ENVSETTINGSVAR in os.environ:
     app.config.from_envvar(ENVSETTINGSVAR)
 
 
-def get_maf(genome, alignment, chrom):
+def get_alignment_dir(genome, alignment):
     return os.path.join(
-        app.config['UCSC_DIR'], 'goldenPath', genome,
-        alignment, 'maf', '{0}.maf.bz2'.format(chrom))
+        app.config['UCSC_DIR'], 'goldenPath', genome, alignment)
+
+
+def get_maf(genome, alignment, chrom):
+    return os.path.join(get_alignment_dir(genome, alignment),
+                        'maf', '{0}.maf.bz2'.format(chrom))
+
+
+def get_treefile(genome, alignment, treename):
+    return os.path.join(get_alignment_dir(genome, alignment),
+                        '{0}.nh'.format(treename))
+
+
+@app.route('/newick/<genome>/<alignment>/<treename>')
+def newick(genome, alignment, treename):
+    return open(get_treefile(genome, alignment, treename)).read()
+
+
+@app.route('/treeview/<genome>/<alignment>/<treename>')
+def treeview(genome, alignment, treename):
+    tree = ete2.Tree(open(get_treefile(genome, alignment, treename)).read())
+    ts = ete2.TreeStyle()
+    ts.show_leaf_name = True
+    ts.show_branch_length = True
+    ts.show_branch_support = True
+    treefilename = '/tmp/treeview.png'
+    tree.render(treefilename, tree_style=ts)
+    return send_file(io.BytesIO(open(treefilename).read()),
+                     attachment_filename='logo.png',
+                     mimetype='image/png')
 
 
 @app.route('/alignment/<genome>/<alignment>/<chrom>/<int:start>/<int:end>')
