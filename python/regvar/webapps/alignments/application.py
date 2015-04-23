@@ -1,19 +1,21 @@
+#!/usr/bin/env python
+
+import logging
 import bx.align.maf
 import cStringIO
 import os
 import io
 import ete2
-import logging
-
-logger = logging.getLogger(__name__)
-
 from flask import Flask, request, send_file
+
+LOGFORMAT = '%(asctime)-15s %(name)s %(levelname)s %(message)s'
+logging.basicConfig(format=LOGFORMAT, level=logging.INFO)
+logger = logging.getLogger(__name__)
 ENVSETTINGSVAR = 'ALIGNMENTS_SETTINGS'
 app = Flask(__name__)
-#
-# Change this to ProductionConfig when finished
+# Change this to ProductionConfig when before deployment
 app.config.from_object('regvar.webapps.alignments.DevelopmentConfig')
-if ENVSETTINGSVAR in os.environ:
+if os.environ.get(ENVSETTINGSVAR, ''):
     app.config.from_envvar(ENVSETTINGSVAR)
 
 
