@@ -1,19 +1,89 @@
 #!/usr/bin/env python
 
+import logging
+FORMAT = '%(asctime)-15s %(name)s %(levelname)s %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.INFO)
+logger = logging.getLogger(__name__)
+# Stop messages from requests  and urllib3 loggers
+logging.getLogger('requests').setLevel(logging.WARN)
+logging.getLogger('urllib3').setLevel(logging.WARN)
+
 import requests
 import cStringIO
 import cPickle
-import logging
+import math
+import ete2
 from bx.align import maf
 from itertools import chain
+from collections import defaultdict
 from regvar import claussnitzer as cl
 
-FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
-logging.basicConfig(format=FORMAT, level=logging.INFO)
-logger = logging.getLogger(__name__)
-# Stop messages from requests logger
-logging.getLogger(
-    'requests.packages.urllib3.connectionpool').setLevel(logging.WARN)
+
+bgseqcolors = {
+    '-' : 'white',
+    'A' : 'green',
+    'a' : 'green',
+    'C' : 'blue',
+    'c' : 'blue',
+    'G' : 'orange',
+    'g' : 'orange',
+    'T' : 'red',
+    't' : 'red',
+    'N' : 'black',
+    'n' : 'black',
+}
+fgseqcolors = defaultdict(lambda: 'black')
+
+
+#
+# Save a rendered phylogenetic tree showing how much sequence is in
+# each species.
+def render_phylo(tree, seqs, genome, treefile):
+    centrelen = float(len(cl.remove_gaps(seqs[genome])))
+    radii = dict((species, math.sqrt(len(cl.remove_gaps(seq)) / centrelen))
+                 for species, seq in seqs.iteritems())
+
+    def mylayout(node):
+        if node.is_leaf():
+            # make a circle for sequence length
+            seqlen = ete2.CircleFace(
+                radius=radii.get(node.name, 0) * 15,
+                color='black', style='circle')
+            seqlen.margin_left = 10
+            seqlen.hz_align = 1
+            ete2.faces.add_face_to_node(
+                seqlen, node, column=0, position='aligned')
+            # make a sequence representation
+            seq = ete2.SequenceFace(
+                seq=seqs.get(node.name, '-' * len(seqs[genome])),
+                fg_colors=fgseqcolors,
+                bg_colors=bgseqcolors,
+                seqtype='nt', col_w=3)
+            seq.margin_left = 40
+            seq.hz_align = 1
+            ete2.faces.add_face_to_node(
+                seq, node, column=1, position='aligned')
+            # same with toughness
+            # toughness = ete2.CircleFace(
+            # radius=toughGuide[node.name] * 15,
+            # color=colorGuide[node.name],
+            # style='circle')
+            # toughness.margin_left = 40
+            # toughness.hz_align = 1
+            # ete2.faces.add_face_to_node(
+            # toughness, node, column=1, position='aligned')
+
+    ts = ete2.TreeStyle()
+    ts.show_leaf_name = True
+    ts.show_branch_length = False
+    ts.show_branch_support = False
+    # ts.mode = 'r'
+    ts.layout_fn = mylayout
+    ts.branch_vertical_margin = 4
+    # ts.force_topology = True
+    # ts.show_scale = False
+    tree.render(treefile, tree_style=ts)
+    return radii
 
 #
 # Parse Table S1 from the Claussnitzer paper
@@ -25,32 +95,47 @@ print S1.head()
 print S1.columns
 
 #
-# Iterate through each SNP
-alignmentsURL = 'http://localhost:9083/alignment'
+# Set up some parameters
+alignmentsURL = 'http://localhost:9083'
 genome = 'hg19'
 alignment = 'multiz46way'
+treename = '46way.corrected'
 spread = 60
+
+#
+# Get the tree
+url = '{0}/newick/{1}/{2}/{3}'.format(
+    alignmentsURL, genome, alignment, treename)
+r = requests.get(url)
+tree = ete2.Tree(r.text)
+
+#
+# Iterate through each SNP
 for row_it in S1.iterrows():
     row = row_it[1]
     logging.info('SNP:%s %s %d', row.ProxySNP, row.Chr, row.Position)
-    url = '{0}/{1}/{2}/{3}/{4}/{5}'.format(alignmentsURL, genome, alignment,
-                                           row.Chr, row.Position - spread,
-                                           row.Position + spread)
-    r = requests.get(url)
+    url = '{0}/alignment/{1}/{2}/{3}/{4}/{5}'.format(
+        alignmentsURL, genome, alignment,
+        row.Chr, row.Position - spread,
+        row.Position + spread)
+    r = requests.get(url, headers={'Chop': '1'})
     # Save MAF on filesystem
     open('S1-sequences/{0}.maf'.format(row.ProxySNP), 'w').write(r.text)
     # Parse alignment
     reader = maf.Reader(cStringIO.StringIO(r.text))
-    sequences, offset = cl.get_sequences_from_maf(reader, genome)
+    seqs, offset = cl.get_sequences_from_maf(reader, genome)
     # organise sequences into centre sequence and others
-    centre_sequence = cl.remove_gaps(sequences[genome])
+    centre_sequence = cl.remove_gaps(seqs[genome])
     phylo_sequences = [
         cl.remove_gaps(sequence)
         for species, sequence
-        in sequences.iteritems()
+        in seqs.iteritems()
         if genome != species
     ]
     sequences = list(chain((centre_sequence,), phylo_sequences))
     # Save sequences
     cPickle.dump(sequences,
                  open('S1-sequences/{0}.pkl'.format(row.ProxySNP), 'w'))
+    radii = render_phylo(
+        tree, seqs, genome,
+        'S1-sequences/{0}-tree.png'.format(row.ProxySNP))

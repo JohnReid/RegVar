@@ -3,6 +3,9 @@ import cStringIO
 import os
 import io
 import ete2
+import logging
+
+logger = logging.getLogger(__name__)
 
 from flask import Flask, request, send_file
 ENVSETTINGSVAR = 'ALIGNMENTS_SETTINGS'
@@ -36,15 +39,22 @@ def newick(genome, alignment, treename):
 
 @app.route('/treeview/<genome>/<alignment>/<treename>')
 def treeview(genome, alignment, treename):
+    imagetype = request.headers.get('ImageType', 'png')
+    import tempfile
+    # Construct the tree
     tree = ete2.Tree(open(get_treefile(genome, alignment, treename)).read())
+    # Choose rendering style
     ts = ete2.TreeStyle()
     ts.show_leaf_name = True
     ts.show_branch_length = True
-    ts.show_branch_support = True
-    treefilename = '/tmp/treeview.png'
+    ts.show_branch_support = False
+    # ts.scale = 120  # 120 pixels per branch length unit
+    # Choose a temporary file to store the rendered tree in
+    treefilename = tempfile.mktemp(suffix='.' + imagetype, prefix='treeview')
+    # Render the tree
     tree.render(treefilename, tree_style=ts)
+    # Serve the image
     return send_file(io.BytesIO(open(treefilename).read()),
-                     attachment_filename='logo.png',
                      mimetype='image/png')
 
 
@@ -97,4 +107,4 @@ def alignment(genome, alignment, chrom, start, end):
     return result
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=9083)
+    app.run(host=app.config['HOST'], port=app.config['PORT'])
