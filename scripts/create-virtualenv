@@ -8,3 +8,4 @@ pip install ipython==2.4.1 pyzmq matplotlib
 which qmake && pip install PySide  # Only install PySide if qmake is available
 pip install cookbook
 pip install scipy
+pip install ete2
