@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+
+import requests
+import cStringIO
+import cPickle
+from bx.align import maf
+from itertools import chain
+from regvar import claussnitzer as cl
+
+
+#
+# Parse Table S1 from the Claussnitzer paper
+S1 = cl.parseS1('S1.csv')
+
+#
+# Show some data
+print S1.head()
+print S1.columns
+
+#
+# Iterate through each SNP
+alignmentsURL = 'http://localhost:9083/alignment'
+genome = 'hg19'
+alignment = 'multiz46way'
+spread = 60
+for row_it in S1.iterrows():
+    row = row_it[1]
+    print row.ProxySNP, row.Chr, row.Position
+    url = '{0}/{1}/{2}/{3}/{4}/{5}'.format(alignmentsURL, genome, alignment,
+                                           row.Chr, row.Position - spread,
+                                           row.Position + spread)
+    r = requests.get(url)
+    # Save MAF on filesystem
+    open('S1-sequences/{0}.maf'.format(row.ProxySNP), 'w').write(r.text)
+    # Parse alignment
+    reader = maf.Reader(cStringIO.StringIO(r.text))
+    sequences, offset = cl.get_sequences_from_maf(reader, genome)
+    # organise sequences into centre sequence and others
+    centre_sequence = cl.remove_gaps(sequences[genome])
+    phylo_sequences = [
+        cl.remove_gaps(sequence)
+        for species, sequence
+        in sequences.iteritems()
+        if genome != species
+    ]
+    sequences = list(chain((centre_sequence,), phylo_sequences))
+    # Save sequences
+    cPickle.dump(sequences,
+                 open('S1-sequences/{0}.pkl'.format(row.ProxySNP), 'w'))

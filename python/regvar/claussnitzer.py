@@ -1,13 +1,10 @@
-#!/usr/bin/env python
+"""
+Code to handle data from Claussnitzer et al. 2014
+"""
 
 import pandas as pd
 import numpy as np
-import requests
-import cStringIO
-import cPickle
-from bx.align import maf
 from collections import defaultdict
-from itertools import chain
 
 
 def parseS1(csvfile):
@@ -92,59 +89,3 @@ def get_sequences_from_maf(reader, centre_species):
 def remove_gaps(seq):
     "Remove gaps from the sequence."
     return seq.replace('-', '')
-
-
-def make_bifa_seq_vec(seqs):
-    "Convert a sequence of sequences into a form suitable for BiFa."
-    import biopsy
-    result = biopsy.SequenceVec()
-    for s in seqs:
-        result.append(s)
-    return result
-
-
-def bifa_scan(sequences, bifa_pssms):
-    import biopsy
-    hits, maximal_chain, unadjusted_hits = \
-        biopsy.score_pssms_on_phylo_sequences(
-            make_bifa_seq_vec(bifa_pssms.keys()),
-            make_bifa_seq_vec(sequences)
-        )
-    return hits
-
-
-#
-# Parse Table S1 from the Claussnitzer paper
-S1 = parseS1('S1.csv')
-
-#
-# Show the data
-print S1.head()
-print S1.columns
-
-#
-# Iterate through each SNP
-alignmentsURL = 'http://localhost:9083/alignment'
-genome = 'hg19'
-alignment = 'multiz46way'
-spread = 60
-for row_it in S1.iterrows():
-    row = row_it[1]
-    print row.ProxySNP, row.Chr, row.Position
-    url = '{0}/{1}/{2}/{3}/{4}/{5}'.format(alignmentsURL, genome, alignment,
-                                           row.Chr, row.Position - spread,
-                                           row.Position + spread)
-    r = requests.get(url)
-    reader = maf.Reader(cStringIO.StringIO(r.text))
-    sequences, offset = get_sequences_from_maf(reader, genome)
-    # organise sequences into centre sequence and others
-    centre_sequence = remove_gaps(sequences[genome])
-    phylo_sequences = [
-        remove_gaps(sequence)
-        for species, sequence
-        in sequences.iteritems()
-        if genome != species
-    ]
-    sequences = list(chain((centre_sequence,), phylo_sequences))
-    cPickle.dump(sequences,
-                 open('S1-sequences/{0}.pkl'.format(row.ProxySNP), 'w'))
