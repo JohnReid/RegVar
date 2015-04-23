@@ -5,6 +5,8 @@ import os
 from flask import Flask, request
 ENVSETTINGSVAR = 'ALIGNMENTS_SETTINGS'
 app = Flask(__name__)
+#
+# Change this to ProductionConfig when finished
 app.config.from_object('regvar.webapps.alignments.DevelopmentConfig')
 if ENVSETTINGSVAR in os.environ:
     app.config.from_envvar(ENVSETTINGSVAR)
