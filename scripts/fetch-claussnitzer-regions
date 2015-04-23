@@ -3,10 +3,17 @@
 import requests
 import cStringIO
 import cPickle
+import logging
 from bx.align import maf
 from itertools import chain
 from regvar import claussnitzer as cl
 
+FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
+logging.basicConfig(format=FORMAT, level=logging.INFO)
+logger = logging.getLogger(__name__)
+# Stop messages from requests logger
+logging.getLogger(
+    'requests.packages.urllib3.connectionpool').setLevel(logging.WARN)
 
 #
 # Parse Table S1 from the Claussnitzer paper
@@ -25,7 +32,7 @@ alignment = 'multiz46way'
 spread = 60
 for row_it in S1.iterrows():
     row = row_it[1]
-    print row.ProxySNP, row.Chr, row.Position
+    logging.info('SNP:%s %s %d', row.ProxySNP, row.Chr, row.Position)
     url = '{0}/{1}/{2}/{3}/{4}/{5}'.format(alignmentsURL, genome, alignment,
                                            row.Chr, row.Position - spread,
                                            row.Position + spread)
