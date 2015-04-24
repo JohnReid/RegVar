@@ -58,6 +58,21 @@ def parseS1(csvfile):
     # Retype data
     S1.Position = S1.Position.apply(int)
 
+    #
+    # Populate TagSNP and Gene fields
+    def lastnum(X):
+        lastnum = None
+        for x in X:
+            if np.isreal(x) and np.isnan(x):
+                yield lastnum
+            else:
+                lastnum = x
+                yield x
+    S1.TagSNP = list(lastnum(S1.TagSNP))
+    S1.TagSNP = S1.TagSNP.apply(str)
+    S1.Gene = list(lastnum(S1.Gene))
+    S1.Gene = S1.Gene.apply(str)
+
     return S1
 
 
