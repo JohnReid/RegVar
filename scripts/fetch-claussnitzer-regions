@@ -35,6 +35,30 @@ bgseqcolors = {
 fgseqcolors = defaultdict(lambda: 'black')
 
 
+def removecommongaps(s1, s2):
+    """Remove common gap characters between the two sequences.
+    Return s1, s2 with these characters removed.
+    """
+    if len(s1) != len(s2):
+        raise ValueError('Sequences must be same length')
+    return (
+        ''.join(b1 for b1, b2 in zip(s1, s2) if b1 != '-' or b2 != '-'),
+        ''.join(b2 for b1, b2 in zip(s1, s2) if b1 != '-' or b2 != '-'),
+    )
+
+
+def seqdist(s1, s2, mismatchpen=-.5, gapopenpen=-.25, gapextendpen=-.05):
+    """
+    The distance between two sequences.
+    """
+    # s1, s2 = removecommongaps(s1, s2)
+    from Bio.pairwise2 import align, format_alignment
+    alignment = next(iter(align.globalms(
+        s1, s2, 1, mismatchpen, gapopenpen, gapextendpen)))
+    print(format_alignment(*alignment))
+    return alignment[2]
+
+
 #
 # Save a rendered phylogenetic tree showing how much sequence is in
 # each species.
@@ -42,27 +66,39 @@ def render_phylo(tree, seqs, genome, treefile):
     centrelen = float(len(cl.remove_gaps(seqs[genome])))
     radii = dict((species, math.sqrt(len(cl.remove_gaps(seq)) / centrelen))
                  for species, seq in seqs.iteritems())
+    dists = dict((species, seqdist(cl.remove_gaps(seqs[genome]),
+                                   cl.remove_gaps(seq)))
+                 for species, seq in seqs.iteritems())
+    maxdist = max(dists.values())
 
     def mylayout(node):
         if node.is_leaf():
             # make a circle for sequence length
             seqlen = ete2.CircleFace(
                 radius=radii.get(node.name, 0) * 15,
-                color='black', style='circle')
+                color='brown', style='circle')
             seqlen.margin_left = 10
             seqlen.hz_align = 1
             ete2.faces.add_face_to_node(
                 seqlen, node, column=0, position='aligned')
+            # make a circle for distances
+            dist = ete2.CircleFace(
+                radius=dists.get(node.name, 0) / maxdist * 15,
+                color='grey', style='circle')
+            dist.margin_left = 10
+            dist.hz_align = 1
+            ete2.faces.add_face_to_node(
+                dist, node, column=1, position='aligned')
             # make a sequence representation
             seq = ete2.SequenceFace(
                 seq=seqs.get(node.name, '-' * len(seqs[genome])),
                 fg_colors=fgseqcolors,
                 bg_colors=bgseqcolors,
                 seqtype='nt', col_w=3)
-            seq.margin_left = 40
+            seq.margin_left = 10
             seq.hz_align = 1
             ete2.faces.add_face_to_node(
-                seq, node, column=1, position='aligned')
+                seq, node, column=2, position='aligned')
             # same with toughness
             # toughness = ete2.CircleFace(
             # radius=toughGuide[node.name] * 15,
@@ -93,6 +129,12 @@ S1 = cl.parseS1('S1.csv')
 # Show some data
 print S1.head()
 print S1.columns
+
+#
+# Show the SNPs grouped by tag and result
+for name, group in S1.groupby(("TagSNP", "PMCA.result"), sort=False):
+    print name
+    print group.ProxySNP
 
 #
 # Set up some parameters
