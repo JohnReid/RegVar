@@ -134,7 +134,8 @@ print S1.columns
 # Show the SNPs grouped by tag and result
 for name, group in S1.groupby(("TagSNP", "PMCA.result"), sort=False):
     print name
-    print group.ProxySNP
+    print ' '.join('S1-sequences/{0}-tree.png'.format(proxySNP)
+                   for proxySNP in group.ProxySNP)
 
 #
 # Set up some parameters
